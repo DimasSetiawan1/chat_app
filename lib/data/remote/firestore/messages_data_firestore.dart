@@ -1,15 +1,11 @@
 import 'dart:async';
 import 'dart:developer';
-import 'package:chat_apps/data/local/isar_service.dart';
 import 'package:chat_apps/data/model/last_message_model.dart';
-import 'package:chat_apps/data/model/message_model.dart';
-import 'package:chat_apps/data/model/rooms_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 
 class MessagesDataFirestore {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final IsarService _isarService = IsarService.instance;
   CollectionReference get _col => _db.collection('rooms');
 
   // search messages by text content
@@ -30,14 +26,12 @@ class MessagesDataFirestore {
   /// get last message from firestore
   Future<LastMessageModel?> getLastMessage(String roomId) async {
     try {
-      log('Getting last message for roomId: $roomId');
       final messagesRef = _col.doc(roomId).collection('messages');
       final querySnap = await messagesRef
           .orderBy('createdAt', descending: true)
           .limit(1)
           .get();
       if (querySnap.docs.isEmpty) {
-        log('No messages found for roomId: $roomId');
         return null;
       }
       final data = querySnap.docs.first.data();
@@ -46,12 +40,6 @@ class MessagesDataFirestore {
       log('Error getting last message from Firestore: $e', stackTrace: st);
       return null;
     }
-  }
-
-  // send a message
-  Future<void> sendMessage(String roomId, MessagesModel messageData) async {
-    final messagesRef = _col.doc(roomId).collection('messages');
-    await messagesRef.add(messageData.toJson());
   }
 
   // watch messages in a room
@@ -136,15 +124,15 @@ class MessagesDataFirestore {
     }
   }
 
-  // add reaction to message
-  Future<void> addReactionToMessage(String roomId, Message message) async {
+  // Create Or Update reaction to message
+  Future<void> createOrUpdateReaction(String roomId, Message message) async {
     try {
       final messageRef = _col
           .doc(roomId)
           .collection('messages')
           .doc(message.id);
       log(
-        'Adding reaction to message in Firestore: ${message.reactions} to message ${message.id} in room $roomId',
+        'Creating or updating reaction to message in Firestore: ${message.reactions} to message ${message.id} in room $roomId',
       );
       await messageRef.update({
         'reactions': message.reactions,

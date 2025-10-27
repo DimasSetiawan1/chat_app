@@ -60,19 +60,11 @@ class ShowReactionPopUp extends StatelessWidget {
                 children: emojis.map((e) {
                   return GestureDetector(
                     onTap: () {
-                      /// Add action to add reaction to message
-                      log('Reacted with $e to message ${message.id}');
                       controller.handleAddReaction(
                         message: message,
                         emoji: e,
                         roomId: roomId,
                       );
-                      // message.reactions ??= {};
-                      // message.reactions!.update(
-                      //   e,
-                      //   (value) => value + 1,
-                      //   ifAbsent: () => 1,
-                      // );
 
                       ScaffoldMessenger.of(context).hideCurrentSnackBar();
                       ScaffoldMessenger.of(context).showSnackBar(

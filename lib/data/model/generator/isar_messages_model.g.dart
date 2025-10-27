@@ -33,31 +33,52 @@ const IsarMessageSchema = CollectionSchema(
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
-    r'messageId': PropertySchema(
+    r'deliveredAt': PropertySchema(
       id: 3,
+      name: r'deliveredAt',
+      type: IsarType.dateTime,
+    ),
+    r'messageId': PropertySchema(
+      id: 4,
       name: r'messageId',
       type: IsarType.string,
     ),
     r'meta': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'meta',
       type: IsarType.object,
       target: r'Meta',
     ),
-    r'replyTo': PropertySchema(
-      id: 5,
-      name: r'replyTo',
-      type: IsarType.string,
+    r'reactions': PropertySchema(
+      id: 6,
+      name: r'reactions',
+      type: IsarType.objectList,
+      target: r'Reaction',
+    ),
+    r'seenAt': PropertySchema(
+      id: 7,
+      name: r'seenAt',
+      type: IsarType.dateTime,
+    ),
+    r'sentAt': PropertySchema(
+      id: 8,
+      name: r'sentAt',
+      type: IsarType.dateTime,
     ),
     r'text': PropertySchema(
-      id: 6,
+      id: 9,
       name: r'text',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 7,
+      id: 10,
       name: r'type',
       type: IsarType.string,
+    ),
+    r'updatedAt': PropertySchema(
+      id: 11,
+      name: r'updatedAt',
+      type: IsarType.dateTime,
     )
   },
   estimateSize: _isarMessageEstimateSize,
@@ -94,7 +115,11 @@ const IsarMessageSchema = CollectionSchema(
     )
   },
   links: {},
-  embeddedSchemas: {r'Attachment': AttachmentSchema, r'Meta': MetaSchema},
+  embeddedSchemas: {
+    r'Attachment': AttachmentSchema,
+    r'Meta': MetaSchema,
+    r'Reaction': ReactionSchema
+  },
   getId: _isarMessageGetId,
   getLinks: _isarMessageGetLinks,
   attach: _isarMessageAttach,
@@ -124,10 +149,12 @@ int _isarMessageEstimateSize(
           3 + MetaSchema.estimateSize(value, allOffsets[Meta]!, allOffsets);
     }
   }
+  bytesCount += 3 + object.reactions.length * 3;
   {
-    final value = object.replyTo;
-    if (value != null) {
-      bytesCount += 3 + value.length * 3;
+    final offsets = allOffsets[Reaction]!;
+    for (var i = 0; i < object.reactions.length; i++) {
+      final value = object.reactions[i];
+      bytesCount += ReactionSchema.estimateSize(value, offsets, allOffsets);
     }
   }
   bytesCount += 3 + object.text.length * 3;
@@ -149,16 +176,25 @@ void _isarMessageSerialize(
   );
   writer.writeString(offsets[1], object.authorId);
   writer.writeDateTime(offsets[2], object.createdAt);
-  writer.writeString(offsets[3], object.messageId);
+  writer.writeDateTime(offsets[3], object.deliveredAt);
+  writer.writeString(offsets[4], object.messageId);
   writer.writeObject<Meta>(
-    offsets[4],
+    offsets[5],
     allOffsets,
     MetaSchema.serialize,
     object.meta,
   );
-  writer.writeString(offsets[5], object.replyTo);
-  writer.writeString(offsets[6], object.text);
-  writer.writeString(offsets[7], object.type);
+  writer.writeObjectList<Reaction>(
+    offsets[6],
+    allOffsets,
+    ReactionSchema.serialize,
+    object.reactions,
+  );
+  writer.writeDateTime(offsets[7], object.seenAt);
+  writer.writeDateTime(offsets[8], object.sentAt);
+  writer.writeString(offsets[9], object.text);
+  writer.writeString(offsets[10], object.type);
+  writer.writeDateTime(offsets[11], object.updatedAt);
 }
 
 IsarMessage _isarMessageDeserialize(
@@ -177,16 +213,26 @@ IsarMessage _isarMessageDeserialize(
       [];
   object.authorId = reader.readString(offsets[1]);
   object.createdAt = reader.readDateTime(offsets[2]);
+  object.deliveredAt = reader.readDateTimeOrNull(offsets[3]);
   object.id = id;
-  object.messageId = reader.readString(offsets[3]);
+  object.messageId = reader.readString(offsets[4]);
   object.meta = reader.readObjectOrNull<Meta>(
-    offsets[4],
+    offsets[5],
     MetaSchema.deserialize,
     allOffsets,
   );
-  object.replyTo = reader.readStringOrNull(offsets[5]);
-  object.text = reader.readString(offsets[6]);
-  object.type = reader.readString(offsets[7]);
+  object.reactions = reader.readObjectList<Reaction>(
+        offsets[6],
+        ReactionSchema.deserialize,
+        allOffsets,
+        Reaction(),
+      ) ??
+      [];
+  object.seenAt = reader.readDateTimeOrNull(offsets[7]);
+  object.sentAt = reader.readDateTimeOrNull(offsets[8]);
+  object.text = reader.readString(offsets[9]);
+  object.type = reader.readString(offsets[10]);
+  object.updatedAt = reader.readDateTimeOrNull(offsets[11]);
   return object;
 }
 
@@ -210,19 +256,33 @@ P _isarMessageDeserializeProp<P>(
     case 2:
       return (reader.readDateTime(offset)) as P;
     case 3:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 4:
+      return (reader.readString(offset)) as P;
+    case 5:
       return (reader.readObjectOrNull<Meta>(
         offset,
         MetaSchema.deserialize,
         allOffsets,
       )) as P;
-    case 5:
-      return (reader.readStringOrNull(offset)) as P;
     case 6:
-      return (reader.readString(offset)) as P;
+      return (reader.readObjectList<Reaction>(
+            offset,
+            ReactionSchema.deserialize,
+            allOffsets,
+            Reaction(),
+          ) ??
+          []) as P;
     case 7:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 8:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 9:
       return (reader.readString(offset)) as P;
+    case 10:
+      return (reader.readString(offset)) as P;
+    case 11:
+      return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -746,6 +806,80 @@ extension IsarMessageQueryFilter
     });
   }
 
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      deliveredAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'deliveredAt',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      deliveredAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'deliveredAt',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      deliveredAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'deliveredAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      deliveredAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'deliveredAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      deliveredAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'deliveredAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      deliveredAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'deliveredAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> idEqualTo(
       Id value) {
     return QueryBuilder.apply(this, (query) {
@@ -953,153 +1087,232 @@ extension IsarMessageQueryFilter
   }
 
   QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
-      replyToIsNull() {
+      reactionsLengthEqualTo(int length) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'replyTo',
-      ));
+      return query.listLength(
+        r'reactions',
+        length,
+        true,
+        length,
+        true,
+      );
     });
   }
 
   QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
-      replyToIsNotNull() {
+      reactionsIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'replyTo',
-      ));
+      return query.listLength(
+        r'reactions',
+        0,
+        true,
+        0,
+        true,
+      );
     });
   }
 
-  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> replyToEqualTo(
-    String? value, {
-    bool caseSensitive = true,
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      reactionsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'reactions',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      reactionsLengthLessThan(
+    int length, {
+    bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'replyTo',
-        value: value,
-        caseSensitive: caseSensitive,
+      return query.listLength(
+        r'reactions',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      reactionsLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'reactions',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      reactionsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'reactions',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> seenAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'seenAt',
       ));
     });
   }
 
   QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
-      replyToGreaterThan(
-    String? value, {
+      seenAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'seenAt',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> seenAtEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'seenAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      seenAtGreaterThan(
+    DateTime? value, {
     bool include = false,
-    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         include: include,
-        property: r'replyTo',
+        property: r'seenAt',
         value: value,
-        caseSensitive: caseSensitive,
       ));
     });
   }
 
-  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> replyToLessThan(
-    String? value, {
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> seenAtLessThan(
+    DateTime? value, {
     bool include = false,
-    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.lessThan(
         include: include,
-        property: r'replyTo',
+        property: r'seenAt',
         value: value,
-        caseSensitive: caseSensitive,
       ));
     });
   }
 
-  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> replyToBetween(
-    String? lower,
-    String? upper, {
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> seenAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
-    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
-        property: r'replyTo',
+        property: r'seenAt',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> sentAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'sentAt',
       ));
     });
   }
 
   QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
-      replyToStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+      sentAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'replyTo',
-        value: value,
-        caseSensitive: caseSensitive,
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'sentAt',
       ));
     });
   }
 
-  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> replyToEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'replyTo',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> replyToContains(
-      String value,
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'replyTo',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> replyToMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'replyTo',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
-      replyToIsEmpty() {
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> sentAtEqualTo(
+      DateTime? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'replyTo',
-        value: '',
+        property: r'sentAt',
+        value: value,
       ));
     });
   }
 
   QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
-      replyToIsNotEmpty() {
+      sentAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'replyTo',
-        value: '',
+        include: include,
+        property: r'sentAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> sentAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'sentAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition> sentAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'sentAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -1365,6 +1578,80 @@ extension IsarMessageQueryFilter
       ));
     });
   }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      updatedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'updatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      updatedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'updatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      updatedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      updatedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      updatedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      updatedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'updatedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension IsarMessageQueryObject
@@ -1380,6 +1667,13 @@ extension IsarMessageQueryObject
       FilterQuery<Meta> q) {
     return QueryBuilder.apply(this, (query) {
       return query.object(q, r'meta');
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterFilterCondition>
+      reactionsElement(FilterQuery<Reaction> q) {
+    return QueryBuilder.apply(this, (query) {
+      return query.object(q, r'reactions');
     });
   }
 }
@@ -1413,6 +1707,18 @@ extension IsarMessageQuerySortBy
     });
   }
 
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortByDeliveredAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deliveredAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortByDeliveredAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deliveredAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortByMessageId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'messageId', Sort.asc);
@@ -1425,15 +1731,27 @@ extension IsarMessageQuerySortBy
     });
   }
 
-  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortByReplyTo() {
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortBySeenAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'replyTo', Sort.asc);
+      return query.addSortBy(r'seenAt', Sort.asc);
     });
   }
 
-  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortByReplyToDesc() {
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortBySeenAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'replyTo', Sort.desc);
+      return query.addSortBy(r'seenAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortBySentAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sentAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortBySentAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sentAt', Sort.desc);
     });
   }
 
@@ -1458,6 +1776,18 @@ extension IsarMessageQuerySortBy
   QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortByTypeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'type', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> sortByUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 }
@@ -1488,6 +1818,18 @@ extension IsarMessageQuerySortThenBy
     });
   }
 
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> thenByDeliveredAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deliveredAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> thenByDeliveredAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deliveredAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -1512,15 +1854,27 @@ extension IsarMessageQuerySortThenBy
     });
   }
 
-  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> thenByReplyTo() {
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> thenBySeenAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'replyTo', Sort.asc);
+      return query.addSortBy(r'seenAt', Sort.asc);
     });
   }
 
-  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> thenByReplyToDesc() {
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> thenBySeenAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'replyTo', Sort.desc);
+      return query.addSortBy(r'seenAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> thenBySentAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sentAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> thenBySentAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sentAt', Sort.desc);
     });
   }
 
@@ -1547,6 +1901,18 @@ extension IsarMessageQuerySortThenBy
       return query.addSortBy(r'type', Sort.desc);
     });
   }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> thenByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QAfterSortBy> thenByUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
 }
 
 extension IsarMessageQueryWhereDistinct
@@ -1564,6 +1930,12 @@ extension IsarMessageQueryWhereDistinct
     });
   }
 
+  QueryBuilder<IsarMessage, IsarMessage, QDistinct> distinctByDeliveredAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'deliveredAt');
+    });
+  }
+
   QueryBuilder<IsarMessage, IsarMessage, QDistinct> distinctByMessageId(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -1571,10 +1943,15 @@ extension IsarMessageQueryWhereDistinct
     });
   }
 
-  QueryBuilder<IsarMessage, IsarMessage, QDistinct> distinctByReplyTo(
-      {bool caseSensitive = true}) {
+  QueryBuilder<IsarMessage, IsarMessage, QDistinct> distinctBySeenAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'replyTo', caseSensitive: caseSensitive);
+      return query.addDistinctBy(r'seenAt');
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QDistinct> distinctBySentAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sentAt');
     });
   }
 
@@ -1589,6 +1966,12 @@ extension IsarMessageQueryWhereDistinct
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'type', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<IsarMessage, IsarMessage, QDistinct> distinctByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'updatedAt');
     });
   }
 }
@@ -1620,6 +2003,12 @@ extension IsarMessageQueryProperty
     });
   }
 
+  QueryBuilder<IsarMessage, DateTime?, QQueryOperations> deliveredAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'deliveredAt');
+    });
+  }
+
   QueryBuilder<IsarMessage, String, QQueryOperations> messageIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'messageId');
@@ -1632,9 +2021,22 @@ extension IsarMessageQueryProperty
     });
   }
 
-  QueryBuilder<IsarMessage, String?, QQueryOperations> replyToProperty() {
+  QueryBuilder<IsarMessage, List<Reaction>, QQueryOperations>
+      reactionsProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'replyTo');
+      return query.addPropertyName(r'reactions');
+    });
+  }
+
+  QueryBuilder<IsarMessage, DateTime?, QQueryOperations> seenAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'seenAt');
+    });
+  }
+
+  QueryBuilder<IsarMessage, DateTime?, QQueryOperations> sentAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sentAt');
     });
   }
 
@@ -1647,6 +2049,12 @@ extension IsarMessageQueryProperty
   QueryBuilder<IsarMessage, String, QQueryOperations> typeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'type');
+    });
+  }
+
+  QueryBuilder<IsarMessage, DateTime?, QQueryOperations> updatedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'updatedAt');
     });
   }
 }
@@ -2680,3 +3088,438 @@ extension MetaQueryFilter on QueryBuilder<Meta, Meta, QFilterCondition> {
 }
 
 extension MetaQueryObject on QueryBuilder<Meta, Meta, QFilterCondition> {}
+
+// coverage:ignore-file
+// ignore_for_file: duplicate_ignore, non_constant_identifier_names, constant_identifier_names, invalid_use_of_protected_member, unnecessary_cast, prefer_const_constructors, lines_longer_than_80_chars, require_trailing_commas, inference_failure_on_function_invocation, unnecessary_parenthesis, unnecessary_raw_strings, unnecessary_null_checks, join_return_with_assignment, prefer_final_locals, avoid_js_rounded_ints, avoid_positional_boolean_parameters, always_specify_types
+
+const ReactionSchema = Schema(
+  name: r'Reaction',
+  id: -239693266717445956,
+  properties: {
+    r'emoji': PropertySchema(
+      id: 0,
+      name: r'emoji',
+      type: IsarType.string,
+    ),
+    r'userIds': PropertySchema(
+      id: 1,
+      name: r'userIds',
+      type: IsarType.stringList,
+    )
+  },
+  estimateSize: _reactionEstimateSize,
+  serialize: _reactionSerialize,
+  deserialize: _reactionDeserialize,
+  deserializeProp: _reactionDeserializeProp,
+);
+
+int _reactionEstimateSize(
+  Reaction object,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  var bytesCount = offsets.last;
+  bytesCount += 3 + object.emoji.length * 3;
+  bytesCount += 3 + object.userIds.length * 3;
+  {
+    for (var i = 0; i < object.userIds.length; i++) {
+      final value = object.userIds[i];
+      bytesCount += value.length * 3;
+    }
+  }
+  return bytesCount;
+}
+
+void _reactionSerialize(
+  Reaction object,
+  IsarWriter writer,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  writer.writeString(offsets[0], object.emoji);
+  writer.writeStringList(offsets[1], object.userIds);
+}
+
+Reaction _reactionDeserialize(
+  Id id,
+  IsarReader reader,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  final object = Reaction();
+  object.emoji = reader.readString(offsets[0]);
+  object.userIds = reader.readStringList(offsets[1]) ?? [];
+  return object;
+}
+
+P _reactionDeserializeProp<P>(
+  IsarReader reader,
+  int propertyId,
+  int offset,
+  Map<Type, List<int>> allOffsets,
+) {
+  switch (propertyId) {
+    case 0:
+      return (reader.readString(offset)) as P;
+    case 1:
+      return (reader.readStringList(offset) ?? []) as P;
+    default:
+      throw IsarError('Unknown property with id $propertyId');
+  }
+}
+
+extension ReactionQueryFilter
+    on QueryBuilder<Reaction, Reaction, QFilterCondition> {
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> emojiEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'emoji',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> emojiGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'emoji',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> emojiLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'emoji',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> emojiBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'emoji',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> emojiStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'emoji',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> emojiEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'emoji',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> emojiContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'emoji',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> emojiMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'emoji',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> emojiIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'emoji',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> emojiIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'emoji',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> userIdsElementEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'userIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition>
+      userIdsElementGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'userIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition>
+      userIdsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'userIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> userIdsElementBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'userIds',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition>
+      userIdsElementStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'userIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition>
+      userIdsElementEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'userIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition>
+      userIdsElementContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'userIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> userIdsElementMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'userIds',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition>
+      userIdsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'userIds',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition>
+      userIdsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'userIds',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> userIdsLengthEqualTo(
+      int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'userIds',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> userIdsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'userIds',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> userIdsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'userIds',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> userIdsLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'userIds',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition>
+      userIdsLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'userIds',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<Reaction, Reaction, QAfterFilterCondition> userIdsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'userIds',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
+}
+
+extension ReactionQueryObject
+    on QueryBuilder<Reaction, Reaction, QFilterCondition> {}

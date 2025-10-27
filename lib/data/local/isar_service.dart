@@ -157,4 +157,87 @@ class IsarService {
       log('Error caching messages: $e');
     }
   }
+
+  /// get cached messages by room id
+ Future<List<IsarMessage>> getCachedMessages(String roomId) async {
+    final isar = db;
+    // 1. Cari room-nya terlebih dahulu
+    final room = await isar.isarRooms.where().roomIdEqualTo(roomId).findFirst();
+
+    if (room != null) {
+      // 2. Muat semua message yang terhubung dengan room ini
+      // IsarLinks bersifat lazy-loaded, jadi data baru ditarik saat diakses.
+      final messages = await room.messages.filter().sortByCreatedAt().findAll();
+      return messages.toList();
+    }
+
+    // Jika room tidak ditemukan di cache, kembalikan list kosong
+    return [];
+  }
+
+
+  /// cached message 
+  Stream<List<IsarMessage>> watchCachedMessages(String roomId) {
+    final isar = db;
+    final roomQuery = isar.isarRooms.where().roomIdEqualTo(roomId);
+
+    return roomQuery.watch(fireImmediately: true).asyncMap((rooms) async {
+      final room = rooms.isNotEmpty ? rooms.first : null;
+
+      if (room != null) {
+        final messages = await room.messages.filter().sortByCreatedAt().findAll();
+        return messages.toList();
+      } else {
+        return [];
+      }
+    });
+  }
+
+  Future<void> cacheMessagesForRoom(
+    String roomId,
+    List<IsarMessage> messages,
+  ) async {
+    try {
+      final isar = db;
+      await isar.writeTxn(() async {
+        // 1. Dapatkan object Room dari database berdasarkan roomId.
+        var room = await isar.isarRooms.where().roomIdEqualTo(roomId).findFirst();
+
+        // --- PERBAIKAN DI SINI ---
+        // 2. Jika room belum ada di cache, buat instance baru DAN LANGSUNG SIMPAN.
+        if (room == null) {
+          final newRoom = IsarRoom()
+            ..roomId = roomId
+            ..type = 'unknown'
+            ..createdAt = DateTime.now().toIso8601String();
+          
+          // Simpan room baru ke database agar "dikenali" oleh Isar.
+          await isar.isarRooms.put(newRoom);
+          
+          // Ambil kembali room yang sudah "dikenali" Isar.
+          room = await isar.isarRooms.where().roomIdEqualTo(roomId).findFirst();
+        }
+
+        // 3. Sekarang 'room' dijamin sudah ada dan "dikenali" Isar.
+        if (room != null) {
+          // 4. Simpan semua message ke dalam collection IsarMessage.
+          await isar.isarMessages.putAll(messages);
+
+          // 5. Hubungkan message-message ini ke room.
+          room.messages.addAll(messages);
+
+          // 6. Simpan perubahan pada link di dalam room. Ini sekarang akan berhasil.
+          await room.messages.save();
+          log('Cached ${messages.length} messages and linked to room $roomId');
+        } else {
+          // Ini seharusnya tidak akan pernah terjadi dengan logika di atas.
+          log('Failed to create or find room $roomId.');
+        }
+      });
+    } catch (e, s) {
+      log('Error caching messages for room: $e', stackTrace: s);
+      rethrow;
+    }
+  }
+  
 }

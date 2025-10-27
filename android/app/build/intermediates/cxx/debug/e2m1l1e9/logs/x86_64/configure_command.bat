@@ -11,9 +11,9 @@
   "-DCMAKE_ANDROID_NDK=C:\\Users\\USER\\AppData\\Local\\Android\\sdk\\ndk\\27.0.12077973" ^
   "-DCMAKE_TOOLCHAIN_FILE=C:\\Users\\USER\\AppData\\Local\\Android\\sdk\\ndk\\27.0.12077973\\build\\cmake\\android.toolchain.cmake" ^
   "-DCMAKE_MAKE_PROGRAM=C:\\Users\\USER\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe" ^
-  "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=D:\\punya_dimas\\chat_apps\\android\\app\\build\\intermediates\\cxx\\debug\\e2m1l1e9\\obj\\x86_64" ^
-  "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=D:\\punya_dimas\\chat_apps\\android\\app\\build\\intermediates\\cxx\\debug\\e2m1l1e9\\obj\\x86_64" ^
-  "-BD:\\punya_dimas\\chat_apps\\android\\app\\.cxx\\debug\\e2m1l1e9\\x86_64" ^
+  "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=D:\\punya_dimas\\chat_app\\android\\app\\build\\intermediates\\cxx\\debug\\e2m1l1e9\\obj\\x86_64" ^
+  "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=D:\\punya_dimas\\chat_app\\android\\app\\build\\intermediates\\cxx\\debug\\e2m1l1e9\\obj\\x86_64" ^
+  "-BD:\\punya_dimas\\chat_app\\android\\app\\.cxx\\debug\\e2m1l1e9\\x86_64" ^
   -GNinja ^
   -Wno-dev ^
   --no-warn-unused-cli ^

@@ -4,6 +4,7 @@ import 'package:chat_apps/domain/entities/meta.dart';
 class MetaModel implements EntityModel<Meta> {
   final String topic;
   final String sessionId;
+  
 
   const MetaModel({
     required this.topic,

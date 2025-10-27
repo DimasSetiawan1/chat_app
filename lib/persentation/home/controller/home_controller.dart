@@ -5,7 +5,6 @@ import 'dart:developer';
 import 'package:chat_apps/data/local/isar_service.dart';
 import 'package:chat_apps/data/model/isar_rooms_model.dart';
 import 'package:chat_apps/data/model/rooms_model.dart';
-import 'package:chat_apps/data/model/user_model.dart';
 import 'package:chat_apps/data/remote/firestore/messages_data_firestore.dart';
 import 'package:chat_apps/data/remote/firestore/room_data_firestore.dart';
 import 'package:chat_apps/data/remote/firestore/users_data_firestore.dart';
@@ -47,7 +46,6 @@ class HomeController extends GetxController {
       if (cachedRooms.isNotEmpty) {
         log('Loaded ${cachedRooms.length} rooms from Isar cache.');
         rooms.assignAll(cachedRooms);
-        // Ambil juga last message untuk data dari cache
         getLastMessagesForRooms(cachedRooms);
       }
     } catch (e) {
@@ -78,15 +76,18 @@ class HomeController extends GetxController {
               'Received ${firestoreRooms.length} rooms from Firestore stream.',
             );
 
-            // Konversi RoomsModel dari Firestore menjadi IsarRoom
+            // Ambil cache sekarang sebagai map untuk merge
+            final cached = await _isarService.getCachedRooms();
+            final cachedMap = {for (var r in cached) r.roomId: r};
+
+            // Konversi RoomsModel dari Firestore menjadi IsarRoom, tapi jangan timpa lastMessage
             final isarRooms = firestoreRooms.map((roomModel) {
+              final existing = cachedMap[roomModel.id];
+              final hasFm = roomModel.lastMessage.text.isNotEmpty;
+
               final isarRoom = IsarRoom()
                 ..roomId = roomModel.id
                 ..type = roomModel.type
-                ..lastMessage = (IsarLastMessage()
-                  ..authorId = roomModel.lastMessage.authorId
-                  ..createdAt = DateTime.parse(roomModel.lastMessage.createdAt)
-                  ..text = roomModel.lastMessage.text)
                 ..membersOnline = roomModel.membersOnline
                 ..createdAt = roomModel.createdAt.toString()
                 ..metaJson = jsonEncode({
@@ -103,17 +104,24 @@ class HomeController extends GetxController {
                   )
                   .toList();
 
-              if (roomModel.lastMessage.text.isNotEmpty) {
+              // Jika Firestore punya lastMessage, pakai itu. Jika tidak, gunakan cached lastMessage bila ada.
+              if (hasFm) {
                 isarRoom.lastMessage = IsarLastMessage()
                   ..authorId = roomModel.lastMessage.authorId
                   ..createdAt = DateTime.parse(roomModel.lastMessage.createdAt)
                   ..text = roomModel.lastMessage.text;
+              } else if (existing?.lastMessage != null) {
+                final lm = existing!.lastMessage;
+                isarRoom.lastMessage = IsarLastMessage()
+                  ..authorId = lm.authorId
+                  ..createdAt = lm.createdAt
+                  ..text = lm.text;
               }
 
               return isarRoom;
             }).toList();
 
-            // Simpan ke Isar
+            // Simpan ke Isar (pastikan cacheMultipleRooms juga menyimpan nested object dengan benar)
             await _isarService.cacheMultipleRooms(isarRooms);
 
             // Perbarui UI dengan data terbaru
@@ -123,6 +131,40 @@ class HomeController extends GetxController {
             log('Error in room stream: $e');
           },
         );
+  }
+
+  /// Pembaruan last message untuk setiap room dalam daftar.
+  Future<void> refreshRoomLastMessage(String roomId) async {
+    try {
+      final lastMessage = await _messagesDataFirestore.getLastMessage(roomId);
+      if (lastMessage == null) return;
+
+      // update Isar cache: ambil cache semua lalu update item yang cocok
+      final cached = await _isarService.getCachedRooms();
+      final idx = cached.indexWhere((r) => r.roomId == roomId);
+      if (idx != -1) {
+        final r = cached[idx];
+        r.lastMessage = IsarLastMessage()
+          ..authorId = lastMessage.authorId
+          ..createdAt = DateTime.parse(lastMessage.createdAt)
+          ..text = lastMessage.text;
+        // Simpan kembali room yang diupdate
+        await _isarService.cacheMultipleRooms([r]);
+      }
+
+      // update observable list agar UI ter-refresh
+      final localIdx = rooms.indexWhere((r) => r.roomId == roomId);
+      if (localIdx != -1) {
+        final r = rooms[localIdx];
+        r.lastMessage = IsarLastMessage()
+          ..authorId = lastMessage.authorId
+          ..createdAt = DateTime.parse(lastMessage.createdAt)
+          ..text = lastMessage.text;
+        rooms.refresh();
+      }
+    } catch (e) {
+      log('Error refreshing last message for $roomId: $e');
+    }
   }
 
   /// Mengambil pesan terakhir untuk daftar room yang diberikan.
@@ -137,6 +179,8 @@ class HomeController extends GetxController {
             ..authorId = lastMessage.authorId
             ..createdAt = DateTime.parse(lastMessage.createdAt)
             ..text = lastMessage.text;
+
+          await _roomDataFirestore.updateLastMessage(room.roomId, lastMessage);
         }
       }
       // Perbarui UI lagi setelah mendapatkan last message
@@ -158,11 +202,11 @@ class HomeController extends GetxController {
     return user?.name ?? user?.email ?? 'Guest';
   }
 
-  void markUserOnline(String roomId) {
-    final currentUser = _authUtils.currentUser;
-    if (currentUser == null) return;
-    _roomDataFirestore.incrementMembers(roomId);
-  }
+  // void markUserOnline(String roomId) {
+  //   final currentUser = _authUtils.currentUser;
+  //   if (currentUser == null) return;
+  //   _roomDataFirestore.incrementMembers(roomId);
+  // }
 
   bool get isGuest {
     final currentUser = _authUtils.currentUser;

@@ -4,6 +4,8 @@ import 'package:chat_apps/data/model/rooms_model.dart';
 import 'package:chat_apps/data/remote/firestore/room_data_firestore.dart';
 import 'package:chat_apps/domain/entities/members.dart';
 import 'package:chat_apps/persentation/room/controller/room_controller.dart';
+import 'package:chat_apps/persentation/room/widgets/composer_action_bar.dart';
+import 'package:chat_apps/persentation/room/widgets/custom_chat_message.dart';
 import 'package:chat_apps/persentation/room/widgets/list_user_reaction.dart';
 import 'package:chat_apps/persentation/room/widgets/show_profile_user.dart';
 import 'package:chat_apps/persentation/room/widgets/show_reaction_popup.dart';
@@ -30,7 +32,6 @@ class _RoomScreenState extends State<RoomScreen> {
   void initState() {
     super.initState();
     final args = Get.arguments;
-    log('RoomScreen init with args: ${args['room']}');
     if (args['room'] is Map<String, dynamic>) {
       try {
         room = RoomsModel.fromJson(args['room']);
@@ -47,10 +48,9 @@ class _RoomScreenState extends State<RoomScreen> {
       // Get.back();
       return;
     }
-    _chatController.watchOnlineMembersCount(room!.id);
     _chatController.getUserById();
     _chatController.currentRoomId = room!.id;
-    _chatController.startListeningToMessages(room!.id);
+    _chatController.messageController.initializeRoom(room!.id);
     _currentUserId = uid;
   }
 
@@ -64,7 +64,6 @@ class _RoomScreenState extends State<RoomScreen> {
       appBar: AppBar(
         leading: BackButton(
           onPressed: () {
-            RoomDataFirestore().decrementMembers(room!.id);
             Get.back();
           },
         ),
@@ -86,25 +85,37 @@ class _RoomScreenState extends State<RoomScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  room != null && room!.meta.topic.isNotEmpty
-                      ? room!.meta.topic
-                      : 'Chat Room',
-                  style: const TextStyle(fontSize: 16),
-                ),
-                Obx(
-                  () => Text(
-                    '${_chatController.onlineCount.value} Online',
+            // Make the title area take the remaining space and avoid overflow
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    room != null && room!.meta.topic.isNotEmpty
+                        ? room!.meta.topic
+                        : 'Chat Room',
+                    style: const TextStyle(fontSize: 16),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  // Join member names into a single line and ellipsize to avoid overflow/scroll
+                  Text(
+                    room != null
+                        ? room!.members.map((m) => m.name).join(', ')
+                        : '',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.greenAccent[400],
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -113,11 +124,49 @@ class _RoomScreenState extends State<RoomScreen> {
         child: Chat(
           chatController: _chatController.messageController,
           currentUserId: _currentUserId!,
-          onAttachmentTap: () {
-            log('Attachment tap not implemented');
-          },
+
           theme: Get.isDarkMode ? ChatTheme.dark() : ChatTheme.light(),
           builders: Builders(
+            composerBuilder: (context) => Composer(
+              topWidget: ComposerActionBar(
+                buttons: [
+                  ComposerActionButton(
+                    icon: Icons.group_add,
+                    title: 'Join Now',
+                    onPressed: () {
+                      log('Join Now pressed');
+                    },
+                  ),
+                  ComposerActionButton(
+                    icon: Icons.video_call,
+                    title: 'Watch',
+                    onPressed: () {
+                      log('Join Now pressed');
+                    },
+                  ),
+                ],
+              ),
+            ),
+            customMessageBuilder:
+                (
+                  context,
+                  message,
+                  index, {
+                  required bool isSentByMe,
+                  MessageGroupStatus? groupStatus,
+                }) => Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Get.isDarkMode
+                        ? ChatColors.dark().surfaceContainer
+                        : ChatColors.light().surfaceContainer,
+                    borderRadius: const BorderRadius.all(Radius.circular(12)),
+                  ),
+                  child: IsTypingIndicator(),
+                ),
             chatMessageBuilder:
                 (
                   context,
@@ -137,74 +186,28 @@ class _RoomScreenState extends State<RoomScreen> {
                       role: '',
                     ),
                   );
-                  final isSystemMessage = message.authorId == 'tutor';
-                  final isFirstInGroup = groupStatus?.isFirst ?? true;
-                  final isLastInGroup = groupStatus?.isLast ?? true;
-                  final shouldShowAvatar =
-                      !isSystemMessage && isLastInGroup && isRemoved != true;
-                  final isCurrentUser = message.authorId == _currentUserId;
-                  final shouldShowUsername =
-                      !isSystemMessage && isFirstInGroup && isRemoved != true;
 
-                  Widget? avatar;
-                  if (shouldShowAvatar) {
-                    avatar = Padding(
-                      padding: EdgeInsets.only(
-                        left: isCurrentUser ? 8 : 0,
-                        right: isCurrentUser ? 0 : 8,
-                      ),
-                      child: Avatar(userId: data.uid),
-                    );
-                  } else if (!isSystemMessage) {
-                    avatar = const SizedBox(width: 40);
-                  }
-
-                  return ChatMessage(
+                  return CustomChatMessage(
+                    isCurrentUser: _currentUserId == message.authorId,
+                    room: room,
                     message: message,
+                    data: data,
                     index: index,
-                    bottomWidget:
-                        message.reactions == null ||
-                            !message.reactions!.isNotEmpty
-                        ? null
-                        : ListUserReactions(room: room, messageId: message.id),
                     animation: animation,
                     isRemoved: isRemoved,
+                    isSentByMe: isSentByMe,
                     groupStatus: groupStatus,
-                    topWidget: shouldShowUsername
-                        ? Padding(
-                            padding: EdgeInsets.only(
-                              bottom: 4,
-                              left: isCurrentUser ? 0 : 48,
-                              right: isCurrentUser ? 48 : 0,
-                            ),
-                            child: Username(userId: message.authorId),
-                          )
-                        : null,
-                    leadingWidget: !isCurrentUser
-                        ? avatar
-                        : isSystemMessage
-                        ? null
-                        : const SizedBox(width: 40),
-                    trailingWidget: isCurrentUser
-                        ? avatar
-                        : isSystemMessage
-                        ? null
-                        : const SizedBox(width: 40),
-                    receivedMessageScaleAnimationAlignment:
-                        (message is SystemMessage)
-                        ? Alignment.center
-                        : Alignment.centerLeft,
-                    receivedMessageAlignment: (message is SystemMessage)
-                        ? AlignmentDirectional.center
-                        : AlignmentDirectional.centerStart,
-                    horizontalPadding: (message is SystemMessage) ? 0 : 8,
                     child: child,
                   );
                 },
           ),
           onMessageSend: (String text) {
-            log('Sending message: $text');
-            _chatController.insertMessage(
+            if (text.trim().isEmpty) return;
+            if (text == '') {
+              // _chatController.sendTypingIndicator(room!.id);
+              return;
+            }
+            _chatController.messageController.insertMessage(
               Message.text(
                 id: const Uuid().v4(),
                 authorId: _currentUserId!,
@@ -214,6 +217,7 @@ class _RoomScreenState extends State<RoomScreen> {
                 sentAt: DateTime.now().toUtc(),
                 seenAt: DateTime.now().toUtc(),
                 deliveredAt: DateTime.now().toUtc(),
+                metadata: {},
               ),
             );
           },
@@ -267,7 +271,6 @@ class _RoomScreenState extends State<RoomScreen> {
                   orElse: () =>
                       Members(uid: message.authorId, name: 'Unknown', role: ''),
                 );
-
                 Get.bottomSheet(
                   ShowProfileUser(
                     member: member!,
@@ -276,8 +279,6 @@ class _RoomScreenState extends State<RoomScreen> {
                   isScrollControlled: false,
                 );
               },
-          userCache: UserCache(),
-
           resolveUser: (UserID id) async {
             if (id == _currentUserId) {
               return User(

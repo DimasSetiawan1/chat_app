@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function validRole(r) {
+      return r in ['tutor','student','parent'];
+    }
+
+    function userRole(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+        ? get(/databases/$(database)/documents/users/$(uid)).data.role
+        : null;
+    }
+
+    function authIsTutor() {
+      return isSignedIn() && userRole(request.auth.uid) == 'tutor';
+    }
+
+    // ---------------- users ----------------
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && authIsTutor();
+
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['uid','name','avatarUrl','role','email','createdAt','lastSeenAt'])
+        && request.resource.data.uid == userId
+        && validRole(request.resource.data.role);
+
+      allow update: if isSignedIn()
+        // 1. Pastikan pengguna hanya mengupdate profilnya sendiri.
+        && request.auth.uid == userId
+        // 2. Pastikan field yang tidak boleh berubah (immutable) tidak diubah.
+        // && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if false;
+    }
+
+    // ---------------- rooms ----------------
+    match /rooms/{roomId} {
+      // cek membership via field turunan memberUids
+      function isMemberResource() {
+        return resource.data.memberUids is list
+          && resource.data.memberUids.hasAny([request.auth.uid]);
+      }
+      function isMemberRequest() {
+        return request.resource.data.memberUids is list
+          && request.resource.data.memberUids.hasAny([request.auth.uid]);
+      }
+
+      // Baca hanya untuk anggota
+      allow get: if isSignedIn() && request.auth.uid in resource.data.memberUids;
+      allow list: if isSignedIn() && request.auth.uid in resource.data.memberUids;
+      // Buat room: hanya tutor, dan pembuat harus jadi anggota
+      allow create: if isSignedIn()
+        && authIsTutor()
+        && isMemberRequest()
+        && request.resource.data.membersOnline is number 
+      	&& request.resource.data.membersOnline <= 0
+        && request.resource.data.keys().hasOnly([
+             'id','type','members','memberUids','createdAt','lastMessage','meta','membersOnline'
+           ])
+        // validasi dasar
+        && request.resource.data.members is list
+        && request.resource.data.memberUids is list
+        && request.resource.data.memberUids.size() == request.resource.data.members.size()
+        && request.resource.data.memberUids.size() >= 2
+        // trio: tepat 3 anggota
+        && (
+             request.resource.data.type != 'trio'
+             || request.resource.data.memberUids.size() == 3
+           );
+
+      // Update: hanya anggota; bidang kunci immutable
+      allow update: if isSignedIn()
+        && isMemberResource()
+        && request.resource.data.keys().hasOnly([
+             'id','type','members','memberUids','createdAt','lastMessage','meta','membersOnline'
+           ])
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.membersOnline is number 
+    		&& request.resource.data.membersOnline >= 0
+        && request.resource.data.memberUids == resource.data.memberUids
+        && request.resource.data.members == resource.data.members;
+
+      allow delete: if false;
+    }
+    // ------------- messages subcollection -------------
+    match /rooms/{roomId}/messages/{messageId} {
+      // Fungsi yang BENAR untuk memeriksa keanggotaan room dari sub-koleksi
+      function roomHasMember() {
+        return exists(/databases/$(database)/documents/rooms/$(roomId))
+          && get(/databases/$(database)/documents/rooms/$(roomId)).data.memberUids is list
+          && get(/databases/$(database)/documents/rooms/$(roomId)).data.memberUids.hasAny([request.auth.uid]);
+  		}
+
+      // Fungsi untuk memeriksa author pesan
+      function isAuthor() {
+        return (
+          (resource.data.keys().hasAny(['author']) && resource.data.author is map && resource.data.author.id == request.auth.uid)
+          || (resource.data.keys().hasAny(['authorId']) && resource.data.authorId == request.auth.uid)
+        );
+      }
+      allow get, list: if isSignedIn() && roomHasMember();
+
+      allow create: if isSignedIn()
+        && roomHasMember()
+        && request.resource.data.id is string
+        && request.resource.data.type is string
+        && (
+          (request.resource.data.author is map && request.resource.data.author.id == request.auth.uid)
+          || (request.resource.data.authorId is string && request.resource.data.authorId == request.auth.uid)
+        );
+
+      allow update: if isSignedIn()
+        && roomHasMember();
+
+      allow delete: if false;
+    }
+  }
+}

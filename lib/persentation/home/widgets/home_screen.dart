@@ -177,7 +177,7 @@ class HomeScreen extends StatelessWidget {
                         //   ),
                       ],
                     ),
-                    onTap: () {
+                    onTap: () async {
                       final data = rooms[index];
                       RoomsModel room = RoomsModel(
                         id: data.roomId,
@@ -201,8 +201,11 @@ class HomeScreen extends StatelessWidget {
                             .toList(),
                         meta: MetaModel(topic: topic, sessionId: sessionId),
                       );
-                      _homeController.markUserOnline(data.roomId);
-                      Get.toNamed('/room', arguments: {'room': room.toJson()});
+                      await Get.toNamed(
+                        '/room',
+                        arguments: {'room': room.toJson()},
+                      );
+                      await _homeController.refreshRoomLastMessage(data.roomId);
                     },
                   );
                 },

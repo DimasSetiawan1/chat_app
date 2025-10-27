@@ -1,3 +1,4 @@
+import 'package:chat_apps/data/model/isar_messages_model.dart';
 import 'package:isar/isar.dart';
 
 part 'generator/isar_rooms_model.g.dart';
@@ -29,6 +30,8 @@ class IsarRoom {
   // Rooms.lastMessage (wajib ada pada entity)
   late IsarLastMessage lastMessage;
 
+  final messages = IsarLinks<IsarMessage>();
+
   // Rooms.meta (disimpan sebagai JSON agar fleksibel)
   String? metaJson;
 }
@@ -36,14 +39,13 @@ class IsarRoom {
 @embedded
 class IsarMember {
   late String uid;
-  String? role;       // tutor | parent | student
+  String? role; // tutor | parent | student
   String? name;
 }
-
 
 @embedded
 class IsarLastMessage {
   late DateTime createdAt;
-  String? authorId; 
+  String? authorId;
   String? text;
 }

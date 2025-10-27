@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:chat_apps/data/model/entity_model.dart';
 import 'package:chat_apps/data/model/last_message_model.dart';

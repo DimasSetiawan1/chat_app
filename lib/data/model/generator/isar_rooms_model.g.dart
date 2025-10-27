@@ -114,7 +114,14 @@ const IsarRoomSchema = CollectionSchema(
       ],
     )
   },
-  links: {},
+  links: {
+    r'messages': LinkSchema(
+      id: -6514561035753912448,
+      name: r'messages',
+      target: r'IsarMessage',
+      single: false,
+    )
+  },
   embeddedSchemas: {
     r'IsarMember': IsarMemberSchema,
     r'IsarLastMessage': IsarLastMessageSchema
@@ -250,11 +257,13 @@ Id _isarRoomGetId(IsarRoom object) {
 }
 
 List<IsarLinkBase<dynamic>> _isarRoomGetLinks(IsarRoom object) {
-  return [];
+  return [object.messages];
 }
 
 void _isarRoomAttach(IsarCollection<dynamic> col, Id id, IsarRoom object) {
   object.id = id;
+  object.messages
+      .attach(col, col.isar.collection<IsarMessage>(), r'messages', id);
 }
 
 extension IsarRoomByIndex on IsarCollection<IsarRoom> {
@@ -1367,7 +1376,65 @@ extension IsarRoomQueryObject
 }
 
 extension IsarRoomQueryLinks
-    on QueryBuilder<IsarRoom, IsarRoom, QFilterCondition> {}
+    on QueryBuilder<IsarRoom, IsarRoom, QFilterCondition> {
+  QueryBuilder<IsarRoom, IsarRoom, QAfterFilterCondition> messages(
+      FilterQuery<IsarMessage> q) {
+    return QueryBuilder.apply(this, (query) {
+      return query.link(q, r'messages');
+    });
+  }
+
+  QueryBuilder<IsarRoom, IsarRoom, QAfterFilterCondition> messagesLengthEqualTo(
+      int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.linkLength(r'messages', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<IsarRoom, IsarRoom, QAfterFilterCondition> messagesIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.linkLength(r'messages', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<IsarRoom, IsarRoom, QAfterFilterCondition> messagesIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.linkLength(r'messages', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<IsarRoom, IsarRoom, QAfterFilterCondition>
+      messagesLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.linkLength(r'messages', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<IsarRoom, IsarRoom, QAfterFilterCondition>
+      messagesLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.linkLength(r'messages', length, include, 999999, true);
+    });
+  }
+
+  QueryBuilder<IsarRoom, IsarRoom, QAfterFilterCondition> messagesLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.linkLength(
+          r'messages', lower, includeLower, upper, includeUpper);
+    });
+  }
+}
 
 extension IsarRoomQuerySortBy on QueryBuilder<IsarRoom, IsarRoom, QSortBy> {
   QueryBuilder<IsarRoom, IsarRoom, QAfterSortBy> sortByCreatedAt() {

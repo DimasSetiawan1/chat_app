@@ -15,15 +15,19 @@ class RoomDataFirestore {
   CollectionReference<Map<String, dynamic>> get _col => _db.collection('rooms');
   final IsarService _isarService = IsarService.instance;
 
-  // increment members online
-  void incrementMembers(String roomId) async {
-    await _col.doc(roomId).update({'membersOnline': FieldValue.increment(1)});
+
+  /// update Last Message in room
+  Future<void> updateLastMessage(
+      String roomId, LastMessageModel lastMessage) async {
+    try {
+      await _col.doc(roomId).update({
+        'lastMessage': lastMessage.toJson(),
+      });
+    } catch (e, st) {
+      log('Error updating last message in Firestore: $e', stackTrace: st);
+    }
   }
 
-  // decrement members online
-  void decrementMembers(String roomId) async {
-    await _col.doc(roomId).update({'membersOnline': FieldValue.increment(-1)});
-  }
 
   // watch online members count
   Stream<int> watchMembersOnline(String roomId) {
@@ -80,6 +84,8 @@ class RoomDataFirestore {
       return const Stream.empty();
     }
   }
+
+  
 
   //create a new room
   /// Type : 'trio' or 'group'
