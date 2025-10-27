@@ -26,11 +26,10 @@ class RoomController extends GetxController {
 
   String? currentRoomId;
 
-  final Rxn<UsersModel> currentUser = Rxn<UsersModel>();
+  final Rxn<List<UsersModel>> currentUser = Rxn<List<UsersModel>>();
 
   // internal reactive list of core Message (flutter_chat_core.Message)
   final RxList<Message> _messages = <Message>[].obs;
-
 
   /// add reaction to message
   void handleAddReaction({
@@ -86,10 +85,17 @@ class RoomController extends GetxController {
   }
 
   /// get data user by id
-  Future<void> getUserById() async {
+  Future<void> getUserById(List<String> userIds) async {
     try {
-      final user = await _usersDataFirestore.getUserByUid(currentUserId);
-      currentUser.value = user;
+      final users = await Future.wait(
+        userIds.map((id) => _usersDataFirestore.getUserByUid(id)),
+      );
+      for (var user in users) {
+        if (user != null && user.avatarUrl.isNotEmpty) {
+          currentUser.value = users.whereType<UsersModel>().toList();
+          update();
+        }
+      }
     } catch (e) {
       log('Error getting user by id: $e');
     }

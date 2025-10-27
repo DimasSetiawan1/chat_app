@@ -90,6 +90,7 @@ class HomeController extends GetxController {
                 ..type = roomModel.type
                 ..membersOnline = roomModel.membersOnline
                 ..createdAt = roomModel.createdAt.toString()
+                ..lastMessage = IsarLastMessage()
                 ..metaJson = jsonEncode({
                   'topic': roomModel.meta.topic,
                   'sessionId': roomModel.meta.sessionId,
@@ -171,16 +172,21 @@ class HomeController extends GetxController {
   Future<void> getLastMessagesForRooms(List<IsarRoom> roomList) async {
     try {
       for (final room in roomList) {
-        final lastMessage = await _messagesDataFirestore.getLastMessage(
-          room.roomId,
-        );
-        if (lastMessage != null) {
-          room.lastMessage = IsarLastMessage()
-            ..authorId = lastMessage.authorId
-            ..createdAt = DateTime.parse(lastMessage.createdAt)
-            ..text = lastMessage.text;
+        if (room.roomId.isNotEmpty) {
+          final lastMessage = await _messagesDataFirestore.getLastMessage(
+            room.roomId,
+          );
+          if (lastMessage != null) {
+            room.lastMessage = IsarLastMessage()
+              ..authorId = lastMessage.authorId
+              ..createdAt = DateTime.parse(lastMessage.createdAt)
+              ..text = lastMessage.text;
 
-          await _roomDataFirestore.updateLastMessage(room.roomId, lastMessage);
+            await _roomDataFirestore.updateLastMessage(
+              room.roomId,
+              lastMessage,
+            );
+          }
         }
       }
       // Perbarui UI lagi setelah mendapatkan last message

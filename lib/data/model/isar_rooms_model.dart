@@ -28,7 +28,7 @@ class IsarRoom {
   late String createdAt;
 
   // Rooms.lastMessage (wajib ada pada entity)
-  late IsarLastMessage lastMessage;
+  IsarLastMessage lastMessage = IsarLastMessage();
 
   final messages = IsarLinks<IsarMessage>();
 
@@ -45,7 +45,7 @@ class IsarMember {
 
 @embedded
 class IsarLastMessage {
-  late DateTime createdAt;
+  DateTime createdAt = DateTime.now().toUtc();
   String? authorId;
   String? text;
 }

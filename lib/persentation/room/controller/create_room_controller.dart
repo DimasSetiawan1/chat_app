@@ -121,7 +121,7 @@ class CreateRoomController extends GetxController {
           meta: meta,
           createdAt: DateTime.now(),
         );
-        Get.toNamed('/chat', arguments: {'room': room.toJson()});
+        Get.toNamed('/room', arguments: {'room': room.toJson()});
       } else {
         final currentUserData = await _usersData.getByEmail(currentUserEmail);
         if (currentUserData == null) {
@@ -162,7 +162,7 @@ class CreateRoomController extends GetxController {
         );
         log('Created group room: ${room.toJson()}');
 
-        Get.toNamed('/chat', arguments: {'room': room.toJson()});
+        Get.toNamed('/room', arguments: {'room': room.toJson()});
       }
     } catch (e) {
       Get.snackbar('Error', e.toString());

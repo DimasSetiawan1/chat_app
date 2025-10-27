@@ -137,7 +137,7 @@ class HomeScreen extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
-                      message!.isNotEmpty ? message : 'Start the conversation',
+                      message ?? 'Start the conversation',
                       maxLines: 1,
                       style: TextStyle(
                         color: Theme.of(
@@ -205,7 +205,11 @@ class HomeScreen extends StatelessWidget {
                         '/room',
                         arguments: {'room': room.toJson()},
                       );
-                      await _homeController.refreshRoomLastMessage(data.roomId);
+                      if (data.roomId.isNotEmpty) {
+                        await _homeController.refreshRoomLastMessage(
+                          data.roomId,
+                        );
+                      }
                     },
                   );
                 },

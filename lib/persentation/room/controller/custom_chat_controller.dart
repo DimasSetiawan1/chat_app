@@ -40,10 +40,7 @@ class CustomChatController extends ChatController {
     final cachedIsarMessages = await _isarService.getCachedMessages(roomId);
     final cachedUiMessages = _transformIsarToUi(cachedIsarMessages);
     await setMessages(cachedUiMessages);
-    log(
-      'CustomChatController: Loaded ${cachedUiMessages.length} messages from cache for room $roomId.',
-    );
-
+   
     _beginFirestoreSync(roomId);
   }
 
@@ -53,9 +50,7 @@ class CustomChatController extends ChatController {
         .watchMessagesInRoom(roomId)
         .listen(
           (firestoreMessages) async {
-            log(
-              'CustomChatController: Received ${firestoreMessages.length} messages from Firestore. Syncing...',
-            );
+           
 
             final isarMessages = _transformUiToIsar(firestoreMessages);
             await setMessages(firestoreMessages);
@@ -88,25 +83,35 @@ class CustomChatController extends ChatController {
   @override
   Future<void> insertAllMessages(List<Message> messages, {int? index}) async {
     final newMessages = List<Message>.from(_messages);
-    newMessages.insertAll(newMessages.length - 1, messages);
+    newMessages.insertAll(
+      (newMessages.length != 0 ? newMessages.length - 1 : 0),
+      messages,
+    );
     _messages = newMessages;
     _operationStreamController.add(
-      ChatOperation.insertAll(messages, index ?? newMessages.length - 1),
+      ChatOperation.insertAll(
+        messages,
+        index ?? (newMessages.length != 0 ? newMessages.length - 1 : 0),
+      ),
     );
   }
 
   @override
   Future<void> insertMessage(Message message, {int? index}) async {
     final newMessages = List<Message>.from(_messages);
-    newMessages.insert(newMessages.length - 1, message);
+    newMessages.insert(
+      (newMessages.length != 0 ? newMessages.length - 1 : 0),
+      message,
+    );
     _messages = newMessages;
     _operationStreamController.add(
-      ChatOperation.insert(message, index ?? newMessages.length - 1),
+      ChatOperation.insert(
+        message,
+        index ?? (newMessages.length != 0 ? newMessages.length - 1 : 0),
+      ),
     );
 
-    log(
-      'CustomChatController: Inserted message ${message.id} locally in room $_roomId.',
-    );
+   
     // Kirim ke Firestore jika sudah ada roomId
     if (_roomId != null) {
       try {
@@ -150,9 +155,7 @@ class CustomChatController extends ChatController {
         ChatOperation.update(oldMessage, newMessage, index),
       );
     }
-    log(
-      'CustomChatController: Updated message ${newMessage.id} locally in room $_roomId.',
-    );
+    
     if (_roomId != null) {
       try {
         await _messagesDataFirestore.updateMessage(
@@ -187,9 +190,7 @@ class CustomChatController extends ChatController {
   List<IsarMessage> _transformUiToIsar(List<Message> uiMessages) {
     return uiMessages.map((msg) {
       final text = msg is TextMessage ? msg.text : '';
-      log(
-        'Transforming message ${msg.id} of type ${msg.toJson()} to IsarMessage.',
-      );
+      
       return IsarMessage()
         ..messageId = msg.id
         ..authorId = msg.authorId

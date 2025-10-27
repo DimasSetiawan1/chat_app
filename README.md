@@ -87,16 +87,16 @@ Reference: see the full rules at `firestore_rules.txt`.
 You can use the following dummy accounts for testing purposes after creating them through the app's sign-up screen.
 
 -   **Role**: `student`
--   **Email**: `student@example.com`
--   **Password**: `password123`
+-   **Email**: `student1@gmail.com`
+-   **Password**: `password`
 
 -   **Role**: `parent`
--   **Email**: `parent@example.com`
--   **Password**: `password123`
+-   **Email**: `parent1@gmail.com`
+-   **Password**: `password`
 
 -   **Role**: `tutor`
--   **Email**: `tutor@example.com`
--   **Password**: `password123`
+-   **Email**: `tutor1@gmail.com`
+-   **Password**: `password`
 
 ## Known Limitations
 

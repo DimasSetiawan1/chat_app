@@ -32,6 +32,7 @@ class _RoomScreenState extends State<RoomScreen> {
   void initState() {
     super.initState();
     final args = Get.arguments;
+
     if (args['room'] is Map<String, dynamic>) {
       try {
         room = RoomsModel.fromJson(args['room']);
@@ -48,7 +49,7 @@ class _RoomScreenState extends State<RoomScreen> {
       // Get.back();
       return;
     }
-    _chatController.getUserById();
+    _chatController.getUserById(room!.members.map((m) => m.uid).toList());
     _chatController.currentRoomId = room!.id;
     _chatController.messageController.initializeRoom(room!.id);
     _currentUserId = uid;
@@ -147,26 +148,6 @@ class _RoomScreenState extends State<RoomScreen> {
                 ],
               ),
             ),
-            customMessageBuilder:
-                (
-                  context,
-                  message,
-                  index, {
-                  required bool isSentByMe,
-                  MessageGroupStatus? groupStatus,
-                }) => Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Get.isDarkMode
-                        ? ChatColors.dark().surfaceContainer
-                        : ChatColors.light().surfaceContainer,
-                    borderRadius: const BorderRadius.all(Radius.circular(12)),
-                  ),
-                  child: IsTypingIndicator(),
-                ),
             chatMessageBuilder:
                 (
                   context,
@@ -192,6 +173,7 @@ class _RoomScreenState extends State<RoomScreen> {
                     room: room,
                     message: message,
                     data: data,
+
                     index: index,
                     animation: animation,
                     isRemoved: isRemoved,
@@ -280,27 +262,28 @@ class _RoomScreenState extends State<RoomScreen> {
                 );
               },
           resolveUser: (UserID id) async {
+            final user = _chatController.currentUser.value;
             if (id == _currentUserId) {
               return User(
                 id: id,
-                name: _chatController.currentUser.value?.name,
-                imageSource: _chatController.currentUser.value?.uid == id
-                    ? _chatController.currentUser.value?.avatarUrl
-                    : null,
+                name: user?.firstWhere((u) => u.uid == id).name ?? 'Me',
+                imageSource:
+                    user?.firstWhere((u) => u.uid == id).avatarUrl ?? 'Me',
+
                 createdAt: DateTime.now().toUtc(),
               );
             }
             final member = room?.members.firstWhere(
               (m) => m.uid == id,
-              orElse: () => Members(uid: id, name: 'Other', role: 'Member'),
+              orElse: () => Members(uid: id, name: 'Other', role: 'student'),
             );
+
             return User(
               id: id,
               name: member?.name,
-              metadata: {'role': member?.role ?? 'Member'},
-              imageSource: _chatController.currentUser.value?.uid == id
-                  ? _chatController.currentUser.value?.avatarUrl
-                  : null,
+              metadata: {'role': member?.role ?? 'student'},
+              imageSource:
+                  user?.firstWhere((u) => u.uid == id).avatarUrl ?? 'Me',
               createdAt: DateTime.now().toUtc(),
             );
           },

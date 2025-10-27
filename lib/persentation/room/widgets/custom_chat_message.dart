@@ -28,20 +28,21 @@ class CustomChatMessage extends StatelessWidget {
   final Members data;
   final bool? isRemoved;
   final bool isSentByMe;
+
   final MessageGroupStatus? groupStatus;
   final bool isCurrentUser;
- 
+
   @override
   Widget build(BuildContext context) {
     final isSystemMessage = message.authorId == 'tutor';
-  final isFirstInGroup = groupStatus?.isFirst ?? true;
-  final isLastInGroup = groupStatus?.isLast ?? true;
-  final shouldShowAvatar =
-      !isSystemMessage && isLastInGroup && isRemoved != true;
-  final shouldShowUsername =
-      !isSystemMessage && isFirstInGroup && isRemoved != true;
-
+    final isFirstInGroup = groupStatus?.isFirst ?? true;
+    final isLastInGroup = groupStatus?.isLast ?? true;
+    final shouldShowAvatar =
+        !isSystemMessage && isLastInGroup && isRemoved != true;
+    final shouldShowUsername =
+        !isSystemMessage && isFirstInGroup && isRemoved != true;
     Widget? avatar;
+
     if (shouldShowAvatar) {
       avatar = Padding(
         padding: EdgeInsets.only(
@@ -58,7 +59,11 @@ class CustomChatMessage extends StatelessWidget {
       index: index,
       bottomWidget: message.reactions == null || !message.reactions!.isNotEmpty
           ? null
-          : ListUserReactions(room: room, messageId: message.id, message: message),
+          : ListUserReactions(
+              room: room,
+              messageId: message.id,
+              message: message,
+            ),
       animation: animation,
       isRemoved: isRemoved,
       groupStatus: groupStatus,
