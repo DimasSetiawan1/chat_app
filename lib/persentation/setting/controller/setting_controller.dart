@@ -24,7 +24,7 @@ class SettingController extends GetxController {
   // Logout & clear cached user
   void logout() {
     _authUtils.signOut();
-    _isarService.clearCachedUser();
+    _isarService.clearAllCacheFromDevice();
     Get.offAllNamed('/');
   }
 

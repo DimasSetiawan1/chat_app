@@ -260,7 +260,6 @@ class AuthUtils {
   Future<void> signOut() async {
     try {
       await _auth.signOut();
-      await _isarService.clearCachedUser();
     } catch (e) {
       log('Error in signOut: $e');
     }

@@ -12,6 +12,7 @@ class IsarService {
   static final IsarService instance = IsarService._();
 
   Isar? _isar;
+
   /// Initialize the Isar database.
   Future<Isar> init() async {
     if (_isar != null && _isar!.isOpen) return _isar!;
@@ -24,6 +25,7 @@ class IsarService {
     );
     return _isar!;
   }
+
   /// Get the Isar database instance.
   Isar get db {
     final v = _isar;
@@ -35,8 +37,7 @@ class IsarService {
     return v;
   }
 
-
-/// Close the Isar database.
+  /// Close the Isar database.
   Future<void> close() async {
     final v = _isar;
     if (v != null && v.isOpen) {
@@ -45,7 +46,7 @@ class IsarService {
     }
   }
 
-  /// Rooms cache 
+  /// Rooms cache
   Future<void> cacheRooms(IsarRoom rooms) async {
     try {
       final isar = db;
@@ -57,7 +58,8 @@ class IsarService {
       rethrow;
     }
   }
-  /// Rooms cache 
+
+  /// Rooms cache
   Future<void> cacheMultipleRooms(List<IsarRoom> rooms) async {
     try {
       final isar = db;
@@ -90,14 +92,17 @@ class IsarService {
   }
 
   /// Clear cached user data.
-  Future<void> clearCachedUser() async {
+  /// Delete All cached user data. if user Logout
+  Future<void> clearAllCacheFromDevice() async {
     try {
       final isar = db;
       await isar.writeTxn(() async {
         await isar.isarUsers.clear();
+        await isar.isarRooms.clear();
+        await isar.isarMessages.clear();
       });
     } catch (e) {
-      log('Error clearing cached user: $e');
+      log('Error clearing cache: $e');
     }
   }
 
@@ -159,7 +164,7 @@ class IsarService {
   }
 
   /// get cached messages by room id
- Future<List<IsarMessage>> getCachedMessages(String roomId) async {
+  Future<List<IsarMessage>> getCachedMessages(String roomId) async {
     final isar = db;
     // 1. Cari room-nya terlebih dahulu
     final room = await isar.isarRooms.where().roomIdEqualTo(roomId).findFirst();
@@ -175,8 +180,7 @@ class IsarService {
     return [];
   }
 
-
-  /// cached message 
+  /// cached message
   Stream<List<IsarMessage>> watchCachedMessages(String roomId) {
     final isar = db;
     final roomQuery = isar.isarRooms.where().roomIdEqualTo(roomId);
@@ -185,7 +189,10 @@ class IsarService {
       final room = rooms.isNotEmpty ? rooms.first : null;
 
       if (room != null) {
-        final messages = await room.messages.filter().sortByCreatedAt().findAll();
+        final messages = await room.messages
+            .filter()
+            .sortByCreatedAt()
+            .findAll();
         return messages.toList();
       } else {
         return [];
@@ -201,7 +208,10 @@ class IsarService {
       final isar = db;
       await isar.writeTxn(() async {
         // 1. Dapatkan object Room dari database berdasarkan roomId.
-        var room = await isar.isarRooms.where().roomIdEqualTo(roomId).findFirst();
+        var room = await isar.isarRooms
+            .where()
+            .roomIdEqualTo(roomId)
+            .findFirst();
 
         // --- PERBAIKAN DI SINI ---
         // 2. Jika room belum ada di cache, buat instance baru DAN LANGSUNG SIMPAN.
@@ -210,10 +220,10 @@ class IsarService {
             ..roomId = roomId
             ..type = 'unknown'
             ..createdAt = DateTime.now().toIso8601String();
-          
+
           // Simpan room baru ke database agar "dikenali" oleh Isar.
           await isar.isarRooms.put(newRoom);
-          
+
           // Ambil kembali room yang sudah "dikenali" Isar.
           room = await isar.isarRooms.where().roomIdEqualTo(roomId).findFirst();
         }
@@ -239,5 +249,4 @@ class IsarService {
       rethrow;
     }
   }
-  
 }
