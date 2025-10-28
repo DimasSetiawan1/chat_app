@@ -14,8 +14,8 @@ This is a chat application built with Flutter for an internship assignment. The 
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your-repository-url>
-    cd <your-project-directory>
+    git clone [<your-repository-url>](https://github.com/DimasSetiawan1/chat_app)
+    cd chat_app
     ```
 
 2.  **Set up Firebase:**
